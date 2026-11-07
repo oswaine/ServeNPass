@@ -25,10 +25,15 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             d=json.loads(self.rfile.read(int(self.headers.get('Content-Length',0))))
             with connect() as db:
-                if self.path == '/api/players':
+                if self.path in ['/api/players', '/api/players/update']:
                     name=str(d['name']).strip(); number=int(d['number']); position=str(d['position'])
                     if not name or not 0<=number<=99: raise ValueError('Enter a name and jersey number from 0 to 99.')
-                    db.execute('INSERT INTO players(name,number,position) VALUES(?,?,?)',(name,number,position))
+                    if self.path == '/api/players/update':
+                        cur=db.execute('UPDATE players SET name=?,number=?,position=? WHERE id=?',(name,number,position,int(d['id'])))
+                        if not cur.rowcount:
+                            self.send_json({'error':'Player not found.'},404); return
+                    else:
+                        db.execute('INSERT INTO players(name,number,position) VALUES(?,?,?)',(name,number,position))
                 elif self.path == '/api/games':
                     opponent=str(d['opponent']).strip(); date=str(d['date'])
                     if not opponent or not date: raise ValueError('Opponent and date are required.')

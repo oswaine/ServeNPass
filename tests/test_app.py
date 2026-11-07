@@ -42,6 +42,17 @@ class AppTests(unittest.TestCase):
                 # A new connection reads committed records, as after an app restart.
                 with server.connect() as db:
                     self.assertEqual(db.execute('SELECT COUNT(*) FROM events').fetchone()[0],11)
+                updated = dict(id=player_id, name='Alex Rivera', number=7, position='Libero')
+                self.assertEqual(post('players/update', updated)[0], 200)
+                with server.connect() as db:
+                    saved = dict(db.execute('SELECT * FROM players WHERE id=?', (player_id,)).fetchone())
+                    self.assertEqual(saved, updated)
+                    self.assertEqual(db.execute('SELECT COUNT(*) FROM events WHERE player_id=?', (player_id,)).fetchone()[0], 11)
+                for invalid in [dict(updated, name=' '), dict(updated, number=100)]:
+                    self.assertEqual(post('players/update', invalid)[0], 400)
+                self.assertEqual(post('players/update', dict(updated, id=999999))[0], 404)
+                with server.connect() as db:
+                    self.assertEqual(dict(db.execute('SELECT * FROM players WHERE id=?', (player_id,)).fetchone()), updated)
                 post('undo', {'game_id':game['id']})
                 with server.connect() as db:
                     self.assertEqual(db.execute('SELECT COUNT(*) FROM events').fetchone()[0],10)
